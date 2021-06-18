@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.notice.NoticeMapper">
+
+	<!-- 공지사항 게시글 작성 -->
+	<insert id="insert" parameterType="Notice"
+		useGeneratedKeys="true" keyProperty="seq">
+		INSERT INTO notice(noti_ttl,
+			noti_cont,
+			noti_rgstr_nm,
+			noti_read_cnt,
+			noti_noti_ymd,
+			noti_file
+		) VALUES (
+			#{ttl},
+			#{cont},
+			#{rgstrNm},
+			0,
+			date_format(now(), '%Y%m%d'),
+			#{file}
+		)
+	</insert>
+
+	<!-- 공지사항 게시글 조회 -->
+	<select id="select" resultType="Notice" parameterType="long">
+		SELECT
+			<include refid="notice_column"></include>
+		FROM 
+			notice
+		WHERE 
+			noti_seq = #{seq}
+	</select>
+
+	<!-- 공지사항 게시글 조회수 증가 -->
+	<update id="updateHitByIdx" parameterType="Notice">
+		UPDATE 
+			notice
+		SET
+			noti_read_cnt = #{readCnt} + 1
+		WHERE
+			noti_seq = #{seq}
+	</update>
+
+	<!-- 공지사항 게시글 수정 -->
+	<update id="update" parameterType="Notice">
+		UPDATE 
+			notice
+		SET
+			noti_ttl = #{ttl},
+			noti_cont = #{cont}
+		WHERE
+			noti_seq = #{seq}
+	</update>
+
+	<!-- 공지사항 게시글 삭제 -->
+	<delete id="delete" parameterType="long">
+        DELETE FROM 
+			        notice
+        WHERE 
+        	noti_seq = #{seq}
+	</delete>
+
+	<select id="getData" parameterType="Notice" resultType="Notice">
+		SELECT
+			notice.*
+		FROM
+			(SELECT	
+				<include refid="notice_column"></include>,
+				Lag(noti_seq, 1, 0) OVER (ORDER BY noti_seq DESC) AS nextNum,
+				LEAD(noti_seq, 1, 0) OVER (ORDER BY noti_seq DESC ) AS prevNum
+		FROM
+			 notice
+		ORDER BY
+			 noti_seq desc) notice
+		WHERE
+		 seq = #{seq};
+	</select>
+
+	<!-- default total -->
+	<select id="total" resultType="int">
+		select count(*)
+		from Notice
+	</select>
+
+	<!-- search total -->
+	<select id="searchTotal" resultType="int">
+		select count(*) from Notice
+		<if test="type == '글쓴이'">
+			where noti_rgstr_nm like concat('%', #{searchValue}, '%')
+		</if>
+		<if test="type == '제목'">
+			where noti_ttl like concat('%', #{searchValue}, '%')
+		</if>
+		<if test="type == '제목+내용'">
+			where noti_ttl like concat('%', #{searchValue}, '%')
+			or noti_cont like concat('%', #{searchValue}, '%')
+		</if>
+	</select>
+
+	<!-- field value of PageRequest -->
+	<select id="pagedNotice" parameterType="PageRequest"
+		resultType="Notice">
+		select noti_seq as seq,
+		noti_ttl as ttl,
+		noti_cont as cont,
+		noti_read_cnt as read_cnt,
+		noti_rgstr_nm as rgstr_name,
+		date_format(noti_noti_ymd, '%y%m%d') as notiYmd
+		from Notice
+		<if test="direction == 'ASC'">
+			order by #{sort} ASC
+		</if>
+		<if test="direction == 'DESC'">
+			order by #{sort} DESC
+		</if>
+		limit #{size}
+		offset #{offset}
+	</select>
+
+	<select id="searchedNotice" resultType="Notice">
+		select noti_seq as seq,
+		noti_ttl as ttl,
+		noti_cont as cont,
+		noti_read_cnt as readCnt,
+		noti_rgstr_nm as rgstrNm,
+		date_format(noti_noti_ymd, '%y%m%d') as notiYmd
+		from Notice
+		<if test="type == '글쓴이'">
+			where noti_rgstr_nm like concat('%', #{searchValue}, '%')
+		</if>
+		<if test="type == '제목'">
+			where noti_ttl like concat('%', #{searchValue}, '%')
+		</if>
+		<if test="type == '제목+내용'">
+			where noti_ttl like concat('%', #{searchValue}, '%')
+			or noti_cont like concat('%', #{searchValue}, '%')
+		</if>
+		<if test="pageRequest.direction == 'ASC'">
+			order by #{pageRequest.sort} ASC
+		</if>
+		<if test="pageRequest.direction == 'DESC'">
+			order by #{pageRequest.sort} DESC
+		</if>
+		limit #{pageRequest.size}
+		offset #{pageRequest.offset}
+	</select>
+
+	<sql id="notice_column">
+		noti_seq as seq,
+		noti_ttl as ttl,
+		noti_cont as cont,
+		noti_rgstr_nm as rgstrNm,
+		noti_read_cnt as readCnt,
+		date_format(noti_noti_ymd, '%Y%m%d') as notiYmd,
+		noti_file as file
+	</sql>
+</mapper>
